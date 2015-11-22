@@ -1,0 +1,72 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Larry Long"
+date: "November 22, 2015"
+output: html_document
+---
+
+## Overview 
+The purpose of this project is to create a prediction algoritm that indicates if a person is performing an arm curl correctly. The data  can be found [here](http://groupware.les.inf.puc-rio.br/har).
+
+
+```{r, echo=FALSE}
+setwd("C:/Users/ldl7766/Desktop/Coursera/A. Data Science Specialization/8. Practical Machine Learning/Project")
+```
+
+## Load Packages
+```{r, warning=FALSE}
+library(data.table)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(rattle)
+```
+
+## Load Data
+```{r}
+training <- read.csv("pml-training.csv", na.strings=c("#DIV/0!"," ", "", "NA", "NAs", "NULL"))
+testing <- read.csv("pml-testing.csv", na.strings=c("#DIV/0!"," ", "", "NA", "NAs", "NULL"))
+```
+
+# Preprocess the Training data
+For efficiency, we need to remove the variables with non-important data (e.g., usernames) and variables with missing values.
+
+```{r}
+#Remove non-important variables
+training <- training[, -which(names(training) %in% c("X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", "cvtd_timestamp", "new_window", "num_window"))]
+training = training[, colSums(is.na(training)) == 0] #Remove variables with missing data
+novariance =nearZeroVar(training[sapply(training, is.numeric)], saveMetrics=TRUE)  #Identify variables with no variance
+training = training[, novariance[, 'nzv'] == 0] 
+head(training)
+```
+
+##Build the Model
+
+```{r}
+#Split the data into training and testing sets
+inTrain <- createDataPartition(training$classe, p=0.6, list=FALSE )
+training_data <- training[inTrain,]
+testing_data <- training[-inTrain,]
+
+#Using random forests, create a model that predicts "classe" status
+modFit <- train(classe ~ ., data=training_data, method="rpart")
+modFit 
+
+```
+
+##Cross-validate the Model
+```{r}
+#Use the testing sample to assess the accuracy of the model
+predict <- predict(modFit, testing_data)
+confusionMatrix(testing_data$classe, predict)
+```
+
+The accuracy of the model is 49% and the out of sampel error is 51%. The model can be improved by re-assessing which variables
+to include. One might consider using a different prediction function, as well. 
+
+##Plot the Model
+```{r}
+
+fancyRpartPlot(modFit$finalModel)
+```
